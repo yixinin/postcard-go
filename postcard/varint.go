@@ -29,6 +29,20 @@ func (v Varint) Encode() []byte {
 	return encodeVarintUint64(uint64(v))
 }
 
+// Size 返回编码后的字节大小
+func (v Varint) Size() int {
+	n := uint64(v)
+	if n < 128 {
+		return 1
+	}
+	size := 0
+	for n > 0 {
+		size++
+		n >>= 7
+	}
+	return size
+}
+
 // Decode 从字节数组解码为 VarInt
 func DecodeVarInt(data []byte, pos *int) (Varint, error) {
 	val, err := decodeVarintUint64(data, pos)
