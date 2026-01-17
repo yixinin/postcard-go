@@ -6,9 +6,11 @@ import (
 )
 
 const (
-	bitsPerByte      = 8
+	bitsPerByte       = 8
 	bitsPerVarintByte = 7
 )
+
+type Varint uint64
 
 func varintMax(size int) int {
 	bits := size * bitsPerByte
@@ -20,6 +22,20 @@ func maxOfLastByte(size int) uint8 {
 	maxBits := size * 8
 	extraBits := maxBits % 7
 	return uint8((1 << extraBits) - 1)
+}
+
+// Encode 将 VarInt 编码为字节数组
+func (v Varint) Encode() []byte {
+	return encodeVarintUint64(uint64(v))
+}
+
+// Decode 从字节数组解码为 VarInt
+func DecodeVarInt(data []byte, pos *int) (Varint, error) {
+	val, err := decodeVarintUint64(data, pos)
+	if err != nil {
+		return 0, err
+	}
+	return Varint(val), nil
 }
 
 func encodeVarintUint16(n uint16) []byte {

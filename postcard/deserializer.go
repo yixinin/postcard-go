@@ -112,6 +112,10 @@ func (d *Deserializer) DeserializeUint() (uint, error) {
 	return decodeVarintUint(d.data, &d.pos)
 }
 
+func (d *Deserializer) DeserializeVarint() (Varint, error) {
+	return DecodeVarInt(d.data, &d.pos)
+}
+
 func (d *Deserializer) DeserializeFloat32() (float32, error) {
 	return decodeFloat32LE(d.data, &d.pos)
 }
@@ -182,20 +186,20 @@ func (d *Deserializer) DeserializeSlice(v interface{}) error {
 	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Slice {
 		return fmt.Errorf("expected pointer to slice, got %T", v)
 	}
-	
+
 	slice := rv.Elem()
-	
+
 	sz, err := d.DeserializeUint()
 	if err != nil {
 		return err
 	}
-	
+
 	if slice.IsNil() || slice.Cap() < int(sz) {
 		slice.Set(reflect.MakeSlice(slice.Type(), int(sz), int(sz)))
 	} else {
 		slice.SetLen(int(sz))
 	}
-	
+
 	for i := 0; i < int(sz); i++ {
 		elem := slice.Index(i)
 		if err := d.DeserializeValue(elem.Addr().Interface()); err != nil {
@@ -210,9 +214,9 @@ func (d *Deserializer) DeserializeArray(v interface{}) error {
 	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Array {
 		return fmt.Errorf("expected pointer to array, got %T", v)
 	}
-	
+
 	arr := rv.Elem()
-	
+
 	for i := 0; i < arr.Len(); i++ {
 		elem := arr.Index(i)
 		if err := d.DeserializeValue(elem.Addr().Interface()); err != nil {
@@ -227,21 +231,21 @@ func (d *Deserializer) DeserializeMap(v interface{}) error {
 	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Map {
 		return fmt.Errorf("expected pointer to map, got %T", v)
 	}
-	
+
 	m := rv.Elem()
-	
+
 	if m.IsNil() {
 		m.Set(reflect.MakeMap(m.Type()))
 	}
-	
+
 	sz, err := d.DeserializeUint()
 	if err != nil {
 		return err
 	}
-	
+
 	keyType := m.Type().Key()
 	elemType := m.Type().Elem()
-	
+
 	for i := 0; i < int(sz); i++ {
 		key := reflect.New(keyType).Elem()
 		if err := d.DeserializeValue(key.Addr().Interface()); err != nil {
@@ -261,7 +265,7 @@ func (d *Deserializer) DeserializeStruct(v interface{}) error {
 	if rv.Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer, got %T", v)
 	}
-	
+
 	val := rv.Elem()
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
@@ -269,11 +273,11 @@ func (d *Deserializer) DeserializeStruct(v interface{}) error {
 		}
 		val = val.Elem()
 	}
-	
+
 	if val.Kind() != reflect.Struct {
 		return fmt.Errorf("expected struct, got %T", v)
 	}
-	
+
 	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
@@ -308,19 +312,19 @@ func (d *Deserializer) DeserializeValue(v interface{}) error {
 	if v == nil {
 		return d.DeserializeOption(nil)
 	}
-	
+
 	rv := reflect.ValueOf(v)
-	
+
 	if rv.Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer, got %T", v)
 	}
-	
+
 	if rv.IsNil() {
 		rv.Set(reflect.New(rv.Type().Elem()))
 	}
-	
+
 	val := rv.Elem()
-	
+
 	switch val.Kind() {
 	case reflect.Bool:
 		decoded, err := d.DeserializeBool()

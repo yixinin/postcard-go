@@ -99,6 +99,10 @@ func (s *Serializer) SerializeUint(v uint) error {
 	return s.pushVarintUint(v)
 }
 
+func (s *Serializer) SerializeVarInt(v Varint) error {
+	return s.pushBytes(v.Encode())
+}
+
 func (s *Serializer) SerializeFloat32(v float32) error {
 	s.buf = append(s.buf, encodeFloat32LE(v)...)
 	return nil
@@ -127,7 +131,7 @@ func (s *Serializer) SerializeOption(v interface{}) error {
 	if v == nil {
 		return s.pushByte(0)
 	}
-	
+
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -138,7 +142,7 @@ func (s *Serializer) SerializeOption(v interface{}) error {
 		}
 		return s.SerializeValue(rv.Elem().Interface())
 	}
-	
+
 	if err := s.pushByte(1); err != nil {
 		return err
 	}
@@ -150,11 +154,11 @@ func (s *Serializer) SerializeSlice(v interface{}) error {
 	if val.Kind() != reflect.Slice {
 		return fmt.Errorf("expected slice, got %v", val.Kind())
 	}
-	
+
 	if err := s.pushVarintUint(uint(val.Len())); err != nil {
 		return err
 	}
-	
+
 	for i := 0; i < val.Len(); i++ {
 		if err := s.SerializeValue(val.Index(i).Interface()); err != nil {
 			return err
@@ -168,7 +172,7 @@ func (s *Serializer) SerializeArray(v interface{}) error {
 	if val.Kind() != reflect.Array {
 		return fmt.Errorf("expected array, got %v", val.Kind())
 	}
-	
+
 	for i := 0; i < val.Len(); i++ {
 		if err := s.SerializeValue(val.Index(i).Interface()); err != nil {
 			return err
@@ -182,11 +186,11 @@ func (s *Serializer) SerializeMap(v interface{}) error {
 	if val.Kind() != reflect.Map {
 		return fmt.Errorf("expected map, got %v", val.Kind())
 	}
-	
+
 	if err := s.pushVarintUint(uint(val.Len())); err != nil {
 		return err
 	}
-	
+
 	keys := val.MapKeys()
 	for _, key := range keys {
 		if err := s.SerializeValue(key.Interface()); err != nil {
@@ -208,7 +212,7 @@ func (s *Serializer) SerializeStruct(v interface{}) error {
 	if val.Kind() != reflect.Struct {
 		return fmt.Errorf("expected struct, got %v", val.Kind())
 	}
-	
+
 	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
@@ -236,9 +240,9 @@ func (s *Serializer) SerializeValue(v interface{}) error {
 	if v == nil {
 		return s.SerializeOption(nil)
 	}
-	
+
 	val := reflect.ValueOf(v)
-	
+
 	switch val.Kind() {
 	case reflect.Bool:
 		return s.SerializeBool(val.Bool())
@@ -264,6 +268,9 @@ func (s *Serializer) SerializeValue(v interface{}) error {
 		case reflect.Uint32:
 			return s.SerializeUint32(uint32(val.Uint()))
 		case reflect.Uint64:
+			if val.Type() == reflect.TypeOf(Varint(0)) {
+				return s.SerializeVarInt(Varint(val.Uint()))
+			}
 			return s.SerializeUint64(val.Uint())
 		default:
 			return s.SerializeUint(uint(val.Uint()))
